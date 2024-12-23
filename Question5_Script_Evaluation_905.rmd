@@ -1,0 +1,98 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(car)
+library(DHARMa)
+windows()
+setwd("D:/Master_SIGMA/UE_905_Analyse_Spatiale_Statistique/Regression Lineaire Statistique/Projet")
+dataIni <- read.csv("dataProjet_2025.csv")
+
+dataIni_Querc <- dataIni[
+  dataIni$recherche_esp_lb_nom_plantae=="Quercus L., 1753",]
+dataIni_Querc$cavPA <- (dataIni_Querc$cav_basses_presence_cavites=="oui")
+```
+```{r,fig.height=5,fig.width=5}
+modCav <- lm(cavPA~alti+releve+DBH,data=dataIni_Querc)
+qqPlot(modCav,distribution="norm",line="none")
+```
+```{r}
+dataIni_Querc
+```
+
+# modèle linéaire généralisé binomial
+```{r}
+modBinCavPA <- glm(cavPA~alti+releve+DBH,
+  data=dataIni_Querc,
+  family=binomial(link = "logit"))
+```
+## Adéquation des hypothèses aux données
+
+### 
+```{r}
+residusTransfo <- simulateResiduals(modBinCavPA ,n=1000)
+
+```
+
+### Diagnostic des résidus
+```{r}
+testUniformity(residusTransfo)
+
+```
+```{r}
+testCategorical(residusTransfo,modBinCavPA$model$releve)
+```
+
+
+### 
+```{r}
+testQuantiles(residusTransfo,predictor=modBinCavPA$model$alti)
+```
+### Analyse des sorties
+```{r}
+summary(modBinCavPA)
+```
+Sur interpretation des résultats, nous voyons : 
+  - Résiduals - la médiane des résidus est proche de 0, c'est à dire que la droite de régression se trouve bien à la moyenne des résidus. Ils sont équilibrement répartis autour de la droite
+  - Coefficient : 
+    - Intercept qui représente l'ordonnée à l'origine nous avons une valeur bien supérieur à 0
+    - La valeur estimée du lastLog est de -0,217796 qui représente la pente de droite qui implique un effet du lastLog sur le DBH
+    - De plus que ce soit l'intercept ou le lastLog, les chances que leur valeur soit dû hasarsd sont proches de null
+Ce qui a pour conséquence de valider ce modèle de régression linéaire. Ce qui est corroboré par les *** du P-Value
+
+Nous voyons aussi que d'après les résultats les valeurs DBH peuvent être expliqué 69% des cas par le lastLog
+
+Nous constatons aussi qu'au extrémité de l'axe des ordonnées pour les dates inférieurs à 1860 et supérieur à 1980, la distribution autour de la droite de régression n'est pas tout à fait équilibré. Nous pourrions appliquer une transformation afin d'améliorer le modèle
+  
+### Intervalles de confiance 
+```{r}
+confint(modBinCavPA)
+```
+### Test de modéle emboité
+```{r}
+anova(
+  glm(cavPA~alti,data=dataIni_Querc,family=binomial(link="logit")),
+  modBinCavPA,test="Chisq")
+```
+### quantification globale du potentiel explicatif du modèle
+R2 de McFadden quantifie de combien on a progressé vers le meilleur modèle possible en terme de vraisemblance
+```{r}
+mod_0 <- glm(cavPA~1,data=dataIni_Querc,family=binomial(link="logit"))
+R2_mcFadden <- 1-modBinCavPA$deviance/mod_0$deviance
+R2_mcFadden
+```
+
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
