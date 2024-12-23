@@ -1,0 +1,115 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(car)
+windows()
+setwd("D:/Master_SIGMA/UE_905_Analyse_Spatiale_Statistique/Regression Lineaire Statistique/Projet")
+dataIni <- read.csv("dataProjet_2025.csv")
+
+dataIni_Querc <- dataIni[
+  dataIni$recherche_esp_lb_nom_plantae=="Quercus L., 1753",]
+nrow(dataIni_Querc)
+barplot(dataIni_Querc$DBH,xlab="Echantillons",ylab="DBH (cm)")
+```
+```{r,fig.height=5,fig.width=5}
+plot(lati~long, data=dataIni_Querc,xlab="Longitude WGS84",ylab="Latitude WGS84",pch=3)
+coorPla <- sapply(unique(dataIni$releve),function(idPla){
+ vIndPla <- which(dataIni$releve==idPla)
+ latiPla <- mean(dataIni$lati[vIndPla],na.rm=TRUE)
+ longPla <- mean(dataIni$long[vIndPla],na.rm=TRUE)
+ return(c(longPla,latiPla))
+})
+text(coorPla[1,],coorPla[2,],colnames(coorPla),col=4,cex=0.5,font=2)
+```
+# Modèle de régression linéaire sur le diamètre en fonction de lastLog
+```{r}
+modReg_Querc <- lm(DBH~lastLog,data=dataIni_Querc)
+```
+## Adéquation des hypothèses aux données
+
+### Distribution gaussienne des erreurs
+```{r}
+qqPlot(modReg_Querc,distribution="norm",line="none")
+
+```
+On observe sur le QQ-plot un défaut de Kurtosis. La courbe est trop faible au début et trop forte à la fin, cela indique un excès de kurtosis et donc une distribution trop pointue.
+
+A première vue, le fait de faire la régression linéaire en fonction de lastLog semble pertinent
+
+### Diagnostic des résidus
+```{r}
+qqPlot(residuals(modReg_Querc),distribution="norm",line="none")
+
+```
+```{r}
+hist(modReg_Querc$residuals)
+```
+
+
+### Homoscédasticité des erreurs
+```{r}
+plot(modReg_Querc,which=3,pch=3, add.smooth = FALSE)
+#Ligne horizontale attendueabline(h=0.8,col=4,lwd=2)
+#Moyenne glissante
+lo <- loess(sqrt(abs(rstandard(modReg_Querc)))~modReg_Querc$fitted.values) 
+vFit <- sort(unique(modReg_Querc$fitted.values))
+predLo <- predict(lo,vFit,se=TRUE)
+lines(predLo$fit~vFit,col=2,lwd=2)
+#Enveloppe de confiance autour de cette moyenne glissante :
+nFit <- length(vFit); ICBonf <- qnorm(1-0.05/2/nFit)
+lines(predLo$fit+ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+lines(predLo$fit-ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+```
+### Indépendance des erreurs
+```{r}
+plot(modReg_Querc$residuals~modReg_Querc$fitted.values)
+abline(h=0,col=4)
+#Moyenne glissante
+lo <- loess(modReg_Querc$residuals~modReg_Querc$fitted.values) 
+vFit <- sort(unique(modReg_Querc$fitted.values))
+predLo <- predict(lo,vFit,se=TRUE)
+lines(predLo$fit~vFit,col=2,lwd=2)
+#Enveloppe de confiance autour de cette moyenne glissante :
+nFit <- length(vFit); ICBonf <- qnorm(1-0.05/2/nFit)
+lines(predLo$fit+ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+lines(predLo$fit-ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+```
+```{r}
+plot(modReg_Querc$model[,1]~modReg_Querc$model[,2],xlab="lastLog",ylab=expression(log[10](DBH)))
+lines(sort(modReg_Querc$model$lastLog),modReg_Querc$coefficients[1] + modReg_Querc$coefficients[2]*sort(modReg_Querc$model$lastLog),col=4)
+```
+## Analyse des sorties
+```{r}
+summary(modReg_Querc)
+```
+Sur interpretation des résultats, nous voyons : 
+  - Résiduals - la médiane des résidus est proche de 0, c'est à dire que la droite de régression se trouve bien à la moyenne des résidus. Ils sont équilibrement répartis autour de la droite
+  - Coefficient : 
+    - Intercept qui représente l'ordonnée à l'origine nous avons une valeur bien supérieur à 0
+    - La valeur estimée du lastLog est de -0,217796 qui représente la pente de droite qui implique un effet du lastLog sur le DBH
+    - De plus que ce soit l'intercept ou le lastLog, les chances que leur valeur soit dû hasarsd sont proches de null
+Ce qui a pour conséquence de valider ce modèle de régression linéaire. Ce qui est corroboré par les *** du P-Value
+
+Nous voyons aussi que d'après les résultats les valeurs DBH peuvent être expliqué 69% des cas par le lastLog
+
+Nous constatons aussi qu'au extrémité de l'axe des ordonnées pour les dates inférieurs à 1860 et supérieur à 1980, la distribution autour de la droite de régression n'est pas tout à fait équilibré. Nous pourrions appliquer une transformation afin d'améliorer le modèle
+  
+### Intervalles de confiance 
+```{r}
+confint(modReg_Querc)
+```
+
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
