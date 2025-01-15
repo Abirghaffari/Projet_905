@@ -1,0 +1,47 @@
+
+# Chargement des bibliothèques nécessaires
+install.packages("lme4") # Pour ajuster le modèle mixte
+install.packages("MuMIn") # Pour calculer les R² marginal et conditionnel
+
+library(lme4)
+library(MuMIn)
+
+# Charger les données
+data <- read.csv("C:/Users/Lamghari/Desktop/905_q4/dataProjet_2025.csv")
+
+# Filtrer les données pour les chênes (Quercus L., 1753)
+data_chene <- data[data$recherche_esp_lb_nom_plantae == "Quercus L., 1753", ]
+
+# Nettoyage : Retirer les lignes avec des valeurs manquantes pour les variables pertinentes
+data_chene_clean <- na.omit(data_chene[, c("DBH", "lastLog", "releve")])
+
+# Vérification des données
+head(data_chene_clean)
+
+# Ajuster un modèle mixte
+# DBH est la variable dépendante, lastLog est un effet fixe, et releve est un effet aléatoire
+mod_mixed <- lmer(DBH ~ lastLog + (1 | releve), data = data_chene_clean)
+
+# Résumé du modèle
+summary(mod_mixed)
+
+# Calcul des R² marginal et conditionnel
+r_squared <- r.squaredGLMM(mod_mixed)
+print(r_squared)
+
+# Diagnostics
+# 1. Vérification des résidus
+par(mfrow = c(2, 2))
+plot(resid(mod_mixed), main = "Résidus vs. Valeurs ajustées")
+qqnorm(resid(mod_mixed))
+qqline(resid(mod_mixed))
+
+# 2. Vérification de la normalité des résidus
+hist(resid(mod_mixed), breaks = 20, main = "Histogramme des résidus", xlab = "Résidus")
+
+# Effets aléatoires
+ranef(mod_mixed)
+
+
+
+
