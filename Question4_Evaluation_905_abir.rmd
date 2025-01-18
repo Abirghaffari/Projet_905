@@ -1,0 +1,252 @@
+---
+title: "Question_4"
+title: "Evaluation_905"
+author: "Abir Ben Abdelghaffar/Alban LAMGHARI/Mohamed DUMONT"
+date: "12/07/2024"
+output: 
+      html_document:
+    toc: true
+---
+
+```{r}
+# Chargement des bibliothèques nécessaires
+install.packages("lme4") # Pour ajuster le modèle mixte
+install.packages("MuMIn") # Pour calculer les R² marginal et conditionnel
+```
+
+
+```{r}
+library(lme4)
+library(MuMIn)
+```
+
+```{r}
+# Chargement de jeu de données 
+data <- read.csv("dataProjet_2025.csv")
+# Filtrer les données pour les chênes (Quercus L., 1753)
+data_chene <- data[data$recherche_esp_lb_nom_plantae == "Quercus L., 1753", ]
+```
+
+
+```{r}
+# Ajout de la variable LastLogRel
+vLastLogtRel <- scale(coef(lm(lastLog~0+releve,data=data_chene)))
+rownames(vLastLogtRel) <- sub("releve","",rownames (vLastLogtRel))
+data_chene$LastLogRel <- vLastLogtRel[
+  match(data_chene$releve,rownames(vLastLogtRel)),1]
+```
+
+
+```{r}
+# Nettoyage : Retirer les lignes avec des valeurs manquantes pour les variables pertinentes
+data_chene_clean <- na.omit(data_chene[, c("DBH", "lastLog", "releve","LastLogRel")])
+```
+
+```{r}
+# Vérification des données
+head(data_chene_clean)
+```
+
+# Application d'un modèle mixte oû le DBH variable dépendante , lastLog est un effet fixe et releve est un effet aléatoire
+
+
+```{r}
+mod_mixed <- lmer(DBH ~ lastLog + (1 | releve), data = data_chene_clean)
+```
+
+
+```{r}
+# Avant de commencer à vérifier la validité et l'adéquation des hypothèses du modèle, il faut calculer déja l'estimateur de l'effet aléatoire  provenant de la variable "releve"  et les résiduas de modèle 
+
+ranef(mod_mixed)
+ranef 
+
+# Calcul des résidus conditionelles 
+residuals(mod_mixed)
+```
+
+
+# I. Diagnostics sur les erreurs résiduelles
+
+```{r}
+# Vérification de la validité de l'hypothèse de  normalité des résidus 
+par(mfrow = c(2, 2))
+plot(resid(mod_mixed), main = "Résidus vs. Valeurs ajustées")
+qqnorm(resid(mod_mixed))
+qqline(resid(mod_mixed))
+hist(resid(mod_mixed), breaks = 20, main = "Histogramme des résidus", xlab = "Résidus")
+```
+
+# Interprétation 
+Dans cet histogramme, la distribution des résidus semble relativement symétrique et en cloche, ce qui est cohérent avec une distribution normale. Toutefois, il peut y avoir des écarts subtils qu'on les voit surtout sur le graphique Qqplot. Donc , globalement l'hypothèse de normalité on peut le considérer comme valide  malgré la présence des quelques valeurs abérentes sur les extremités.
+
+```{r}
+# Vérification de la validité de l'Hypothèse de Homoscidacité 
+mod  <-lmer(DBH ~ lastLog+ (1 | releve), data = data_chene_clean)
+# Vérification graphique
+par(mfrow=c(1,1))  # Réinitialisation de la fenêtre graphique
+plot(mod, which=3, pch=3, add.smooth=FALSE)  # Génère le graphique
+
+# Ajout de la ligne horizontale
+abline(h=0.8, col=4, lwd=2)
+#Moyenne glissante
+lo <- loess(
+  sqrt(abs(rstandard(mod)))~mod$fitted.values) 
+vFit <- sort(unique(mod$fitted.values))
+predLo <- predict(lo,vFit,se=TRUE)
+lines(predLo$fit~vFit,col=2,lwd=2)
+#Enveloppe de confiance autour de cette moyenne glissante :
+nFit <- length(vFit); ICBonf <- qnorm(1-0.05/2/nFit)
+lines(predLo$fit+ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+lines(predLo$fit-ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+```
+# Interprétation des résultats 
+D'après le scatter plot obtenu,  on note une distribution symétrique et homogène départ et d'autre de l'axe zéro pour certains valeurs ajustées ( 40,  entre 40 et 50 et au niveau de la valeur 60). Cependant pour les valeurs ajustées moins de 30 , l'hypothèse d'homogénité de la variance n'est plus valide. Donc , une interpréttaion visuelle de ce graphique nous permet pas de s'assurer de la validité de l'hypothèse. Donc , on propose d'appliquer un test statistique comme le Test de Leuvene .
+
+# Test de Leuvene 
+```{r}
+install.packages("DHARMa")
+library(DHARMa)
+simulationOutput <- simulateResiduals(fittedModel = mod)
+testUniformity(simulationOutput) # Test général
+testDispersion(simulationOutput) # Test pour l'homogénéité des variances
+```
+
+# Interprétaion 
+les résultats de Test de Leuvene sugèrent une distribution homogène des résidus. En effet , La valeur de dispersion est de 0.93938. Cela signifie que les variances des résidus simulés et des résidus ajustés du modèle sont similaires (près de 1, qui indiquerait une correspondance parfaite).De plus , une p-valeur = 0.424  > 0.05 indique que nous ne rejetons pas l'hypothèse nulle d'homogénéité des variances. Cela signifie que les variances des résidus ne diffèrent pas de manière significative.
+
+
+# Vérification de l'Hypothèse d'independance des résidus 
+
+```{r}
+plot(residuals(mod)~predict(mod))
+abline(h=0,col=4)
+#Moyenne glissante
+lo <- loess(residuals(mod)~predict(mod)) 
+vFit <- sort(unique(predict(mod)))
+predLo <- predict(lo,vFit,se=TRUE)
+lines(predLo$fit~vFit,col=2,lwd=2)
+#Enveloppe de confiance autour de cette moyenne glissante :
+nFit <- length(vFit); ICBonf <- qnorm(1-0.05/2/nFit)
+lines(predLo$fit+ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+lines(predLo$fit-ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+```
+# Interprétation
+D'après ces résultats , il semble que les résidus sont plutôt bien répartis autour de la ligne y = 0 sans montrer des tendences particulières , ce qui suggère que l'hypothèse d'indépendance des résidus pourrait être valide.
+
+
+# II.Diagnostic sur les effets aléatoires " releve"
+# Vérification de l'hypothèse de normalité 
+```{r}
+install.packages("car")
+library (car)
+qqPlot(ranef(mod)$releve[,1],distribution="norm",line="none")
+```
+# Interprétation 
+Les points semblent suivre une tendance linéaire croissante, ce qui suggère que les effets aléatoires sont normalement distribués.De plus , preseque la totalité des points se trouve à l'intérieur de zone de confiance (fusseau en bleu). Donc d'après ce constat, on peut déduire que les effets aléatoires( "releve ") dans le modèle étudié semblent bien suivre une distribution normale.
+
+# Vérification de l'homogénité de variances : 
+
+```{r}
+vAmp <- sqrt(abs(scale(ranef(mod)$releve[,1])))
+vX <- mod@frame$lastLog[
+    match(rownames(ranef(mod)$releve),mod@frame$releve)]
+plot(vX,vAmp,ylim=c(0,2))
+abline(h=0.8,col=4,lwd=2)
+#Moyenne glissante
+lo <- loess(vAmp~vX) 
+vFit <- sort(unique(vX))
+predLo <- predict(lo,vFit,se=TRUE)
+lines(predLo$fit~vFit,col=2,lwd=2)
+#Enveloppe de confiance autour de cette moyenne glissante :
+nFit <- length(vFit); ICBonf <- qnorm(1-0.05/2/nFit)
+lines(predLo$fit+ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+lines(predLo$fit-ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+```
+# Interprétation
+
+le graphique suggère que les résidus sont assez bien répartis sans motif distinctet ils sont tous inclus dans l'intervalle de confiance ( délimité par les deux traits en rouge) soutenant ainsi l'hypothèse d'homogénéité de variance.
+
+
+# Vérification de l'hypothèse d'indépendence 
+
+```{r}
+plot(ranef(mod)$releve[,1]~vX,ylim=c(-2,2))
+abline(h=0,col=4)
+#Moyenne glissante
+lo <- loess(ranef(mod)$releve[,1]~vX) 
+vFit <- sort(unique(vX))
+predLo <- predict(lo,vFit,se=TRUE)
+lines(predLo$fit~vFit,col=2,lwd=2)
+#Enveloppe de confiance autour de cette moyenne glissante :
+nFit <- length(vFit); ICBonf <- qnorm(1-0.05/2/nFit)
+lines(predLo$fit+ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+lines(predLo$fit-ICBonf*predLo$se.fit~vFit,col=2,lwd=2,lty="dashed")
+```
+# Interprétation 
+
+ On a peu de points pour en juger, donc peu de puissance pour détecter d’éventuelles anomalies. Cependant , accun problème est détecté , les résidus  aléatoires sont réparties d'une façon aléatoire et indépendante et ils sont bien inclus dans la zone de confiance donc on peut supposer que l'hypothèse Independence des résidus aléatoires est valide.
+
+#III. Analyse des sorties 
+
+# Résumé de modèle 
+```{r}
+# Résumé du modèle
+summary(mod_mixed)
+```
+
+# Interprétation des résultats 
+* Évaluation de l'effet fixe ( LastLog)
+
+Intercept (Ordonnée à l'origine): La valeur estimée de l'intercept est de 478.4266, avec une erreur standard de 40.6459 et une valeur t de 11.77. Cela indique que lorsque lastLog est égal à zéro, la valeur prédite de DBH est de 478.4266. La valeur t élevée et l'erreur standard relativement faible suggèrent que cet estimate est statistiquement significatif.
+
+* La pente associée à lastLog est de -0.2294, avec une erreur standard de 0.0214 et une valeur t de -10.72. Cela indique une relation négative significative entre lastLog et DBH, suggérant que l'augmentation de lastLog réduit DBH.
+
+* Évaluation des effets aléatoires:
+
+La variance de l'intercept pour releve est de 8.788 avec un écart-type de 2.964, tandis que la variance résiduelle est de 56.157 avec un écart-type de 7.494. Ces résultats montrent que le modèle tient compte de la variabilité entre les groupes releve et capture également la variation résiduelle.
+
+# Intervalles de Confiance
+
+```{r}
+confint(mod)
+```
+# Interprétation
+.sig01        1.5924566   4.5926577 : L’écart-type des variations entre les relevés (effet aléatoire) est compris entre 1.592 et 4.593. Cela montre qu'il existe une variabilité significative entre les relevés en termes de diamètre des arbres, mais cette variation est relativement modérée.
+
+.sigma        7.2297107   7.7752483 : Cet écart-type montre la variabilité inexpliquée après avoir pris en compte les effets fixes (lastLog) et aléatoires (releve) dans le modèle. L'IC étroit indique une estimation précise de cette variabilité.
+
+lastLog : [-0.271, -0.188] : Cet intervalle montre que, pour chaque augmentation d'une unité de lastLog,  le diamètre des arbres diminue en moyenne d’une valeur comprise entre -0.271 mm et -0.188 mm.
+Comme l’IC ne contient que des valeurs négatives, cela indique un effet significatif de lastLog : plus l’année de dernière coupe est éloignée, plus les arbres ont un diamètre moyen plus faible.
+
+
+En conclusion : * lastLog a un effet significatif et négatif sur le diamètre des arbres.
+
+                *Une partie de la variabilité est liée à des différences entre les relevés                                                     (effet aléatoire).
+                * Toutefois, d'autres facteurs non modélisés pourraient contribuer aux                    variations observées, car il reste une variabilité résiduelle (.sigma).
+                
+                
+# Diagnostic des Résidus marginal et conditionel
+```{r}
+# Calcul des R² marginal et conditionnel
+r_squared <- r.squaredGLMM(mod_mixed)
+print(r_squared)
+
+```
+
+# Interprétation des résultats 
+R² Marginal (R²m) et Conditionnel (R²c) :
+
+* R²m (0.697745) : Ce coefficient représente la proportion de la variance expliquée par l'effet fixe uniquement (lastLog dans notre cas). Un R²m de 0.697745 signifie que 69,77 % de la variance dans DBH peut être expliquée par lastLog seul.
+
+*R²c (0.7386439) : Ce coefficient représente la proportion de la variance expliquée par le modèle complet, c'est-à-dire l'effet fixe (lastLog) et l'effet aléatoire (releve). Un R²c de 0.7386439 signifie que 73,86 % de la variance totale de DBH est expliquée par l'ensemble des effets du modèle, y compris la variation inter-groupe (releve).
+Donc , Le fait que R²c soit légèrement plus élevé que R²m indique que les effets aléatoires (la variabilité entre les releve) ajoutent une petite part d'explication supplémentaire à la variance totale de DBH, en plus de ce qui est expliqué par lastLog seul.
+
+
+
+
+
+
+
+
+
