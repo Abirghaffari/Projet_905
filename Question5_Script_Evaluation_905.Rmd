@@ -1,0 +1,149 @@
+---
+title: "Question5_Evaluation_905"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Ctrl+Shift+Enter*. 
+
+```{r}
+library(car)
+library(DHARMa)
+windows()
+# Chargement de jeu de données 
+
+dataIni <- read.csv("dataProjet_2025.csv")
+# Filtrage de données rélatives à l'essence Chêne  
+dataIni_Querc <- dataIni[
+  dataIni$recherche_esp_lb_nom_plantae=="Quercus L., 1753",]
+dataIni_Querc$cavPA <- (dataIni_Querc$cav_basses_presence_cavites=="oui")
+```
+
+# Extraction des attributs d'interêt 
+```{r}
+dataIni_Querc <- na.omit(dataIni_Querc[, c("DBH", "cavPA","releve", "alti")])
+dataIni_Querc
+```
+
+# modèle linéaire généralisé binomial
+```{r}
+modBinCavPA <- glm(cavPA~alti+releve+DBH,
+  data=dataIni_Querc,
+  family=binomial(link = "logit"))
+```
+## Adéquation des hypothèses de la loi Gaussienne aux résidus de modèle 
+
+```{r}
+# Transformation des résidus pour quels soient distribués d'une manière continue et homoscédastique 
+residusTransfo <- simulateResiduals(modBinCavPA ,n=1000)
+
+```
+
+### Diagnostic des résidus
+# Vérification de la normalité de résidus 
+```{r}
+testUniformity(residusTransfo)
+
+```
+
+# Interprétation 
+
+Les points du QQ plot suivent de près la ligne de référence, et les tests statistiques ont des p-valeurs élevées, ce qui suggère que :
+
+Les résidus du modèle binomial généralisé sont approximativement normaux.
+
+Il n'y a pas de problèmes de dispersion ou de valeurs aberrantes significatives parmi les résidus.
+Donc , d'une manière globale , les résidus du modèle valident l'hypothèse de normalité.
+
+
+# Test de la distribution uniforme des résidus 
+
+```{r}
+testCategorical(residusTransfo,modBinCavPA$model$releve)
+```
+# Interprétaion 
+
+Pour chaque catégorie (catPred), les p-valeurs sont toutes > 0.05 (e.g., 0.4866 pour BLO_1, 0.9567 pour BLO_12).
+Cela signifie qu’il n’y a pas de preuve statistiquement significative pour rejeter l’hypothèse nulle, selon laquelle les résidus suivent une distribution uniforme dans chaque catégorie.
+
+Conclusion : Les résidus semblent uniformes dans toutes les catégories.
+
+De plus , ce test nous a permis de vérifier l'homogénitéde la variance des résidus. En effet : 
+F-value : 0.3681 (mesure de la différence des variances entre groupes)
+p-valeur > 0.05 indique qu’il n’y a pas de preuve statistiquement significative pour rejeter l’hypothèse nulle d’homogénéité des variances entre les groupes.
+
+Conclusion : Les résulats prouvent la validité de l'hypothèse d'homogénité des résidus  pour ce modèle 
+
+```{r}
+testQuantiles(residusTransfo,predictor=modBinCavPA$model$DBH)
+```
+# Interprétation 
+Hypothèse nulle : Les quantiles des résidus ne varient pas de manière significative en fonction de la variable prédictive DBH. Cela suggère que les résidus sont indépendants de la variable explicative DBH .
+
+p-value = 0.9992 :
+
+Comme le p-valeur est aussi élevée cela signifie qu'on peut accepter l’hypothèse nulle.
+Autrement dit , Les quantiles des résidus ne varient pas de manière significative en fonction de la variable prédictive DBH. Cela indique que DBH n'influence pas les résidus de manière systématique.
+
+```{r}
+testQuantiles(residusTransfo,predictor=modBinCavPA$model$alti)
+```
+# Interprétaion 
+Hypothèse nulle :  Les quantiles des résidus ne varient pas significativement en fonction de la variable prédictive altitude. Cela suggère que les résidus sont indépendants de cette variable.
+
+
+p-value = 0.9946 : Une p-valeur aussi élevée indique qu'il n'y a aucune preuve statistiquement significative pour rejeter l'hypothèse nulle. Donc, cela signifie que les quantiles des résidus ne montrent aucune relation systématique ou significative avec la variable prédictive altitude.
+
+### Analyse des sorties
+
+```{r}
+summary(modBinCavPA)
+```
+# Commentaire 
+***Pour les deux variables explicatives alti et DBH :
+
+Les p-valeurs associées indiquent que ni l’altitude ni le diamètre des arbres n’ont d’effet statistiquement significatif sur la probabilité de présence de cavités.
+
+***Pour la variable releve : 
+
+Certains relevés (BLO_12, BLO_17, BLO_4, et BLO_9) montrent une réduction significative de la probabilité de présence de cavités par rapport au relevé de référence (BLO_1).
+Ces différences pourraient refléter des variations locales dans les conditions écologiques, les pratiques de gestion forestière ou d’autres facteurs spécifiques aux sites.
+
+### Intervalles de confiance 
+```{r}
+confint(modBinCavPA)
+```
+# Interprétaion 
+
+***Prédicteurs significatifs : Les niveaux releveBLO_12, releveBLO_17, releveBLO_4 et releveBLO_9 sont statistiquement significatifs et ont des intervalles de confiance qui excluent 0. Cela montre qu'ils ont un effet important sur la probabilité de présence de cavités.
+***Prédicteurs non significatifs : alti, DBH, et certains niveaux de releve (tels que BLO_13, BLO_21, BLO_24, BLO_27) ont des intervalles qui incluent 0, ce qui suggère qu'ils n'ont pas d'effet significatif sur la probabilité de présence de cavités dans les arbres.
+
+Ces résulats des IC confirmes les P-valeurs associées obtenus suite à l'application de la 
+fonction summary. 
+
+### Test de modéle emboité
+Afin de s'assurer que le releve participe significativement à expliquer la présence des cavités
+
+```{r}
+anova(
+  glm(cavPA~alti+releve,data=dataIni_Querc,family=binomial(link="logit")),
+  modBinCavPA,test="Chisq")
+```
+# Interpretation
+Le modèle 2 (avec DBH) n'apporte pas une amélioration statistiquement significative par rapport au modèle 1 (sans DBH). La p-valeur de 0.7036 est bien supérieure à un seuil conventionnel de 0.05, ce qui suggère qu'ajouter le diamètre des arbres (DBH) dans le modèle n'a pas d'effet substantiel sur l'ajustement du modèle.
+
+ Il peut être pertinent de conserver un modèle plus simple, en utilisant uniquement alti et releve, car il explique déjà suffisamment bien les données sans la nécessité d'ajouter DBH.
+
+
+### quantification globale du potentiel explicatif du modèle
+R2 de McFadden quantifie de combien on a progressé vers le meilleur modèle possible en terme de vraisemblance
+```{r}
+mod_0 <- glm(cavPA~1,data=dataIni_Querc,family=binomial(link="logit"))
+R2_mcFadden <- 1-modBinCavPA$deviance/mod_0$deviance
+R2_mcFadden
+```
+
+# Interprétation 
+Ce résultat (R2_mcFadden =  0.1888564) indique que le modèle actuel , dont le DBH et l'altitude sont des pédicteurs moins significatives ,  améliore la prédiction de la variable dépendante (présence de cavité) par rapport à un modèle sans prédicteurs, mais il n'explique pas une grande proportion de la variance. Cela suggère que d'autres facteurs ou variables explicatives pourraient être ajoutés pour améliorer l'ajustement du modèle.
+
