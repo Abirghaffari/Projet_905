@@ -11,9 +11,8 @@ output:
 ```{r}
 library(car)
 library(DHARMa)
-windows()
-# Chargement de jeu de données 
 
+# Chargement de jeu de données 
 dataIni <- read.csv("dataProjet_2025.csv")
 
 # Filtrage de données rélatives à l'essence Chêne  
