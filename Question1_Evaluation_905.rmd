@@ -1,5 +1,5 @@
 ---
-title: "Evaluation_905"
+title: "Question1_Evaluation_905.rmd"
 author: "Abir Ben Abdelghaffar/Alban LAMGHARI/Mohamed DUMONT"
 date: "20/12/2024"
 output: 
@@ -133,14 +133,14 @@ Ainsi, l'hypothèse d'homocédasticité (homogénité des variances) est raisonn
 
 ### Hypothèse 03 : Indépendance des erreurs 
 Après avoir filtré pour ne conserver que les échantillons  relatif à l'espèce Charme et intégré l'effet du relevé dans le modèle, il ne reste plus de variable susceptible de créer une dépendance dans les résidus, excepté peut-être la position précise des arbres au sein des relevés ou peut-être d'autres variabe en lien avec la qualité du sol ou la présence de l'eau mais on dispose pas ces informations dans le jeu de données étudié.
- Mais ça n'empêche pa d'appliquer un Test comme le Testde Durbin-Watsonest utilisé pour détecter la présence d'autocorrélation des résidus.
+Mais ça n'empêche pas d'appliquer un Test comme le Test de Durbin-Watsonest utilisé pour détecter la présence d'autocorrélation des résidus.
 
 ```{r}
 library(car) 
 durbinWatsonTest(modAnova)
 
 ```
-Les résultats suggèrent une autocorrélation positive des résidus (D-W Statistic < 2 ). L'hypothèse d'indépendance des erreurs est donc violée. Cela signifie que les erreurs ne sont pas indépendantes les unes des autres, ce qui peut affecter la validité du modèle. Donc, on doit envisager un ajustement pour traiter cette autocorrélation, comme l'ajout de variables explicatives supplémentaires(par exemple l'altitude).
+Les résultats suggèrent une autocorrélation positive des résidus (D-W Statistic < 2 ). L'hypothèse d'indépendance des erreurs est donc violée. Cela signifie que les erreurs ne sont pas indépendantes les unes des autres, ce qui peut affecter la validité du modèle. Donc, on doit envisager un ajustement pour traiter cette autocorrélation en ajoutant par exemple d'autres variables explicatives supplémentaires comme  l'altitude.
 
 
 On suppose que notre modèle est bien validé, autrement dit le relevé a un effet significatif sur la variable dépendante (DBH) et les résidus sont compatibles avec les hypothèses du modèle linéaire (homoscédasticité et normalité). On passe maintenant à l'analyse des sortie de modèle.
