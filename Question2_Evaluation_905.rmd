@@ -1,13 +1,11 @@
 ---
-title: "Question2_Script_Evaluation_905.rmd"
+title: "Question2_Evaluation_905.rmd"
 output: html_notebook
-date: "01/19/2025"
+date: "19/01/2025"
 ---
 
 ```{r}
 library(car)
-windows()
-#setwd("D:/Master_SIGMA/UE_905_Analyse_Spatiale_Statistique/Regression Lineaire Statistique/Projet")
 dataIni <- read.csv("dataProjet_2025.csv")
 
 dataIni_Querc <- dataIni[
@@ -73,7 +71,9 @@ D'après le résultat obtenu , la distribution des résidus semble ne pas être 
 # Transformation logarithmique :
 ```{r}
 modReg_Querc <- lm(log(DBH)~lastLog,data=dataIni_Querc)
-# Vérification de la validité de l'hypothèse d'homogénité de variances après transformation  
+
+# Vérification de la validité de l'hypothèse d'homogénité de variances après transformation 
+
 plot(modReg_Querc,which=3,pch=3, add.smooth = FALSE)
 #Ligne horizontale attendueabline(h=0.8,col=4,lwd=2)
 #Moyenne glissante
@@ -126,7 +126,7 @@ le scatter plot indique que la variable "last log" a une influence significative
 summary(modReg_Querc)
 ```
 Sur interpretation des résultats, nous voyons : 
-  - Résiduals - la médiane des résidus est proche de 0, c'est à dire que la droite de régression se trouve bien à la moyenne des résidus. Ils sont équilibrement répartis autour de la droite
+  - Résiduals :  la médiane des résidus est proche de 0, c'est à dire que la droite de régression se trouve bien à la moyenne des résidus. Ils sont équilibrement répartis autour de la droite
   - Coefficient : 
     - Intercept qui représente l'ordonnée à l'origine nous avons une valeur bien supérieur à 0
     - La valeur estimée du lastLog est de -0,217796 qui représente la pente de droite qui implique un effet du lastLog sur le DBH
